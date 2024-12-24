@@ -97,9 +97,9 @@ def main():
     parser.add_argument('src', help='Source directory containing input files')
     parser.add_argument('dst', help='Destination directory for output files')
     parser.add_argument('prompt', help='Path to prompt template file')
-    parser.add_argument('--gen', help='Path to gen.py script', default='scripts/ai/gen.py')
+    parser.add_argument('--gen', help='Path to gen.py script', default='.github/downloader/web_cleanup/ai/gen.py')
     parser.add_argument('--pattern', default='*.*', help='File pattern to match (default: *.*)')
-    parser.add_argument('--skip-size-check', action='store_true', help='Skip file size check')
+    parser.add_argument('--skip-size-check', default=True, help='Skip file size check')
 
     global args
     args = parser.parse_args()

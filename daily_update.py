@@ -95,6 +95,24 @@ def process_check_related(input_file: Path) -> None:
         print(f"Error classifying links: {e}")
         raise
 
+def download_webpage(links_file: Path, date_dir: Path) -> None:
+    """Download webpage content for links in links.yml."""
+    download_script = Path(".github/downloader/download/download.py")
+    output_dir = date_dir / "downloads"
+    
+    try:
+        subprocess.run([
+            "python3", download_script,
+            "--yaml-path", str(links_file),
+            "--output-dir", str(output_dir),
+            "--download-type", "webpage",
+            "--pattern", ".*"
+        ], check=True)
+        print(f"Webpages downloaded to {output_dir}")
+    except subprocess.CalledProcessError as e:
+        print(f"Error downloading webpages: {e}")
+        raise
+
 def main() -> None:
     """Run the daily update process."""
     # Setup directories
@@ -107,9 +125,10 @@ def main() -> None:
     # Execute pipeline
     # execute_searches(search_dir)
     # process_daily_results(search_dir, date_dir)
-    # links_file = date_dir / "links.yml"
+    links_file = date_dir / "links.yml"
     # generate_consolidated_links(date_dir)
     # process_check_related(links_file)
+    download_webpage(links_file, date_dir)
 
 if __name__ == "__main__":
     main()
