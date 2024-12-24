@@ -113,6 +113,59 @@ def download_webpage(links_file: Path, date_dir: Path) -> None:
         print(f"Error downloading webpages: {e}")
         raise
 
+def process_webpages(date_dir: Path) -> None:
+    """Process downloaded webpages through cleanup pipeline."""
+    downloads_dir = date_dir / "downloads"
+    cleaned_dir = date_dir / "cleaned" 
+    markdown_dir = date_dir / "markdown"
+    ready_dir = date_dir / "ready"
+    
+    try:
+        # Configure new settings
+        subprocess.run([
+            "python3", ".github/downloader/web_cleanup/config/new_config.py",
+            str(downloads_dir / "results.json"),
+            str(downloads_dir / "page.yml")
+        ], check=True)
+
+        # Add metadata
+        subprocess.run([
+            "python3", ".github/downloader/web_cleanup/config/add_meta.py",
+            str(downloads_dir / "page.yml")
+        ], check=True)
+
+        # Clean HTML
+        subprocess.run([
+            "python3", ".github/downloader/web_cleanup/batch.py",
+            str(downloads_dir),
+            str(cleaned_dir),
+            ".github/downloader/web_cleanup/cleaner/clean_cheerio.js"
+        ], env={
+            **os.environ,
+            "HTML_CLEANER_CONFIG": ".github/downloader/web_cleanup/cleaner/configs/default.json"
+        }, check=True)
+
+        # Convert to Markdown
+        subprocess.run([
+            "python3", ".github/downloader/web_cleanup/batch.py",
+            str(cleaned_dir),
+            str(markdown_dir),
+            ".github/downloader/web_cleanup/markdown/html2md.js"
+        ], check=True)
+
+        # Process with AI
+        subprocess.run([
+            "python3", ".github/downloader/web_cleanup/ai/process_dir.py",
+            str(markdown_dir),
+            str(ready_dir),
+            ".github/downloader/web_cleanup/ai/prompt/clean.template"
+        ], check=True)
+
+        print(f"Webpages processed and saved to {ready_dir}")
+    except subprocess.CalledProcessError as e:
+        print(f"Error processing webpages: {e}")
+        raise
+
 def main() -> None:
     """Run the daily update process."""
     # Setup directories
@@ -123,12 +176,13 @@ def main() -> None:
     search_dir.mkdir(parents=True, exist_ok=True)
 
     # Execute pipeline
-    # execute_searches(search_dir)
-    # process_daily_results(search_dir, date_dir)
+    execute_searches(search_dir)
+    process_daily_results(search_dir, date_dir)
     links_file = date_dir / "links.yml"
-    # generate_consolidated_links(date_dir)
-    # process_check_related(links_file)
+    generate_consolidated_links(date_dir)
+    process_check_related(links_file)
     download_webpage(links_file, date_dir)
+    process_webpages(date_dir)
 
 if __name__ == "__main__":
     main()
