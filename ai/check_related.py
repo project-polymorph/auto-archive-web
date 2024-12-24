@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 import multiprocessing
 from functools import partial
+import argparse
 
 def load_template(template_path):
     """Load the template file"""
@@ -84,16 +85,29 @@ def process_url(template, gen_struct_path, url_data):
     return None
 
 def main():
-    # File paths
-    links_path = Path('.github/links.yml')
-    template_path = Path('.github/prompts/check_related.md.template')
-    gen_struct_path = Path('.github/scripts/ai/gen_struct.py')
+    # Set up argument parser
+    parser = argparse.ArgumentParser(description='Check if articles are related to transgender/LGBTQ+ topics')
+    parser.add_argument('-i', '--input', type=Path, default=Path('.github/links.yml'),
+                      help='Path to links.yml file')
+    parser.add_argument('-t', '--template', type=Path, default=Path('.github/prompts/check_related.md.template'),
+                      help='Path to template file')
+    parser.add_argument('-g', '--gen-struct', type=Path, default=Path('.github/scripts/ai/gen_struct.py'),
+                      help='Path to gen_struct.py script')
+    args = parser.parse_args()
+
+    # Validate paths
+    if not args.input.exists():
+        raise FileNotFoundError(f"Input file not found: {args.input}")
+    if not args.template.exists():
+        raise FileNotFoundError(f"Template file not found: {args.template}")
+    if not args.gen_struct.exists():
+        raise FileNotFoundError(f"Gen struct script not found: {args.gen_struct}")
 
     # Load files
-    with open(links_path, 'r', encoding='utf-8') as f:
+    with open(args.input, 'r', encoding='utf-8') as f:
         links_data = yaml.safe_load(f)
 
-    template = load_template(template_path)
+    template = load_template(args.template)
 
     # Process each unknown entry
     modified = False
@@ -106,7 +120,7 @@ def main():
     # Create a pool with 5 processes
     with multiprocessing.Pool(5) as pool:
         # Create a partial function with template and gen_struct_path
-        process_func = partial(process_url, template, gen_struct_path)
+        process_func = partial(process_url, template, args.gen_struct)
         
         # Process items in chunks of 5
         for i in range(0, len(to_process), 5):
@@ -129,13 +143,13 @@ def main():
             
             # Write changes after every 6 batches
             if modified_in_batch and (i//5 + 1) % 6 == 0:
-                with open(links_path, 'w', encoding='utf-8') as f:
+                with open(args.input, 'w', encoding='utf-8') as f:
                     yaml.dump(links_data, f, allow_unicode=True)
                     f.flush()
                     print(f"Batch of {batch_count} changes saved to links.yml")
                     batch_count = 0
 
-    with open(links_path, 'w', encoding='utf-8') as f:
+    with open(args.input, 'w', encoding='utf-8') as f:
         yaml.dump(links_data, f, allow_unicode=True)
     if not modified:
         print("No changes were necessary")

@@ -14,7 +14,8 @@ def search_serper(query, endpoint="/search", language="", page=1, num_results=10
     payload_dict = {
         "q": query,
         "num": num_results,
-        "page": page
+        "page": page,
+        "tbs": "qdr:m"
     }
     
     # Add language only if specified

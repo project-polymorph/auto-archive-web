@@ -4,6 +4,7 @@ from datetime import datetime
 import re
 import glob
 import os
+import argparse
 
 def parse_date(date_str):
     """Parse various Chinese date formats to a standard format"""
@@ -33,8 +34,8 @@ def merge_news(json_files, yaml_file):
     # Initialize empty list for all articles
     all_articles = []
     processed_links = set()
-    process_count = 0  # New counter for processed articles
-    skip_count = 0     # New counter for skipped articles
+    process_count = 0  # Counter for processed articles
+    skip_count = 0     # Counter for skipped articles
     
     # Load existing YAML if it exists
     if os.path.exists(yaml_file):
@@ -50,7 +51,10 @@ def merge_news(json_files, yaml_file):
         
         # Extract news articles from each file
         for page in data['results']:
-            for article in page['organic']:
+            # Handle both old format with 'organic' and new format with 'news'
+            articles = page.get('organic', page.get('news', []))
+            
+            for article in articles:
                 # Skip non-news entries or existing links
                 if (not article.get('title') or 
                     not article.get('snippet') or 
@@ -75,16 +79,37 @@ def merge_news(json_files, yaml_file):
                 processed_links.add(article['link'])
                 process_count += 1  # Increment process counter
     
-    print(f"Processed {process_count} articles, skipped {skip_count} articles")  # Add summary
+    print(f"Processed {process_count} articles, skipped {skip_count} articles")
     
     # Write to YAML file
     with open(yaml_file, 'w', encoding='utf-8') as f:
         yaml.dump(all_articles, f, allow_unicode=True, sort_keys=False)
 
-if __name__ == '__main__':
-    # Find all JSON files in the directory
-    serper_dir = './'
-    json_files = glob.glob(os.path.join(serper_dir, '*.json'))
+def main():
+    # Set up argument parser
+    parser = argparse.ArgumentParser(description='Merge JSON news files into YAML')
+    parser.add_argument('-i', '--input-dir', required=True,
+                      help='Directory containing input JSON files')
+    parser.add_argument('-o', '--output-dir', required=True,
+                      help='Directory for output YAML file')
+    args = parser.parse_args()
+
+    # Validate directories
+    if not os.path.isdir(args.input_dir):
+        raise ValueError(f"Input directory does not exist: {args.input_dir}")
+    os.makedirs(args.output_dir, exist_ok=True)
+
+    # Find all JSON files in the input directory
+    json_files = glob.glob(os.path.join(args.input_dir, '*.json'))
+    if not json_files:
+        print(f"No JSON files found in {args.input_dir}")
+        return
+
+    # Set output YAML path
+    yaml_file = os.path.join(args.output_dir, 'results.yml')
     
-    # Merge all found JSON files into results.yml
-    merge_news(json_files, os.path.join(serper_dir, 'results.yml'))
+    # Merge news files
+    merge_news(json_files, yaml_file)
+
+if __name__ == '__main__':
+    main()
