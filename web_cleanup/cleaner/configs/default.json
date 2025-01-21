@@ -1,7 +1,11 @@
 {
     "selectorsToRemove": [
         "nav",
-        "header",
+        "header.site-header",
+        "header.main-header",
+        "header.page-header",
+        "header.banner",
+        "header.link",
         "footer",
         "script",
         "style",

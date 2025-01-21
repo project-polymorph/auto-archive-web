@@ -27,8 +27,18 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
+def output_exists(paths) -> bool:
+    """Check if output files/directories exist."""
+    if isinstance(paths, (str, Path)):
+        paths = [paths]
+    return all(Path(p).exists() for p in paths)
+
 def execute_searches(date_dir: Path) -> None:
-    """Execute searches for each query in template file."""
+    search_dir = date_dir / "search_result"
+    if output_exists(search_dir) and any(search_dir.iterdir()):
+        print(f"Search results already exist in {search_dir}, skipping...")
+        return
+
     template_path = Path(".github/prompts/search.md.template")
     script_path = Path(".github/downloader/search/serper.py")
     
@@ -46,7 +56,11 @@ def execute_searches(date_dir: Path) -> None:
     print(f"Search results saved in {date_dir}")
 
 def process_daily_results(search_dir: Path, output_dir: Path) -> None:
-    """Process JSON search results into daily YAML file."""
+    results_file = output_dir / "results.yml"
+    if output_exists(results_file):
+        print(f"Daily results already exist in {results_file}, skipping...")
+        return
+
     results_script = Path(".github/downloader/search/results.py")
     
     try:
@@ -61,9 +75,12 @@ def process_daily_results(search_dir: Path, output_dir: Path) -> None:
         raise
 
 def generate_consolidated_links(date_dir: Path) -> None:
-    """Generate consolidated links.yml from all daily results."""
-    gen_link_script = Path(".github/downloader/search/gen_link.py")
     output_file = date_dir / "links.yml"
+    if output_exists(output_file):
+        print(f"Consolidated links already exist in {output_file}, skipping...")
+        return
+
+    gen_link_script = Path(".github/downloader/search/gen_link.py")
     
     try:
         subprocess.run([
@@ -78,7 +95,10 @@ def generate_consolidated_links(date_dir: Path) -> None:
         raise
 
 def process_check_related(input_file: Path) -> None:
-    """Process links.yml through check_related.py to classify articles."""
+    if not output_exists(input_file):
+        print(f"Input file {input_file} not found, skipping...")
+        return
+
     check_related_script = Path(".github/downloader/ai/check_related.py")
     template_path = Path(".github/prompts/check_related.md.template")
     gen_struct_path = Path(".github/scripts/ai/gen_struct.py")
@@ -99,7 +119,9 @@ def download_webpage(links_file: Path, date_dir: Path) -> None:
     """Download webpage content for links in links.yml."""
     download_script = Path(".github/downloader/download/download.py")
     output_dir = date_dir / "downloads"
-    
+    if output_exists(output_dir):
+        print(f"Daily results already exist in {output_dir}, skipping...")
+        return
     try:
         subprocess.run([
             "python3", download_script,
@@ -141,7 +163,6 @@ def process_webpages(date_dir: Path) -> None:
             str(cleaned_dir),
             ".github/downloader/web_cleanup/cleaner/clean_cheerio.js"
         ], env={
-            **os.environ,
             "HTML_CLEANER_CONFIG": ".github/downloader/web_cleanup/cleaner/configs/default.json"
         }, check=True)
 
@@ -159,6 +180,13 @@ def process_webpages(date_dir: Path) -> None:
             str(markdown_dir),
             str(ready_dir),
             ".github/downloader/web_cleanup/ai/prompt/clean.template"
+        ], check=True)
+
+        # Copy to workspace
+        subprocess.run([
+            "python3", ".github/downloader/file_processor.py",
+            str(date_dir),
+            "workspace"
         ], check=True)
 
         print(f"Webpages processed and saved to {ready_dir}")

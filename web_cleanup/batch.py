@@ -15,7 +15,19 @@ def parse_env_args(args):
             env_vars[key] = value
     return env_vars
 
+def check_node_available():
+    """Check if Node.js is available in the system"""
+    try:
+        subprocess.run(["node", "--version"], capture_output=True, check=True)
+        return True
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return False
+
 def clean_directory(src_dir: str, dst_dir: str, processor_script: str, env_vars: dict = None):
+    if not check_node_available():
+        print("Error: Node.js is not installed. Please install Node.js to run this script.", file=sys.stderr)
+        sys.exit(1)
+        
     # Create destination directory if it doesn't exist
     dst_path = Path(dst_dir)
     dst_path.mkdir(parents=True, exist_ok=True)
